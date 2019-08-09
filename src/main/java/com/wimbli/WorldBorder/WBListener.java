@@ -1,18 +1,27 @@
 package com.wimbli.WorldBorder;
 
+import java.util.List;
+
+import org.bukkit.Bukkit;
 import org.bukkit.Chunk;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerTeleportEvent;
+import org.bukkit.event.player.PlayerTeleportEvent.TeleportCause;
 import org.bukkit.event.player.PlayerPortalEvent;
 import org.bukkit.event.world.ChunkLoadEvent;
 import org.bukkit.event.world.ChunkUnloadEvent;
+import org.bukkit.metadata.FixedMetadataValue;
+import org.bukkit.metadata.MetadataValue;
 import org.bukkit.Location;
+import org.bukkit.entity.Player;
 
 
 public class WBListener implements Listener
 {
+	final static String PORTAL_EVENT_META = "WorldBorder-portal";
+
 	@EventHandler(priority = EventPriority.LOWEST, ignoreCancelled = true)
 	public void onPlayerTeleport(PlayerTeleportEvent event)
 	{
@@ -23,7 +32,29 @@ public class WBListener implements Listener
 		if (Config.Debug())
 			Config.log("Teleport cause: " + event.getCause().toString());
 
-		Location newLoc = BorderCheckTask.checkPlayer(event.getPlayer(), event.getTo(), true, true);
+		// Ignore nonsensical teleport events.
+		// https://hub.spigotmc.org/jira/browse/SPIGOT-5252
+		Player player = event.getPlayer();
+		if (event.getCause() == TeleportCause.NETHER_PORTAL || event.getCause() == TeleportCause.END_PORTAL) {
+			// Store event details of the original correct event. TeleportCause.UNKNOWN comes after.
+			player.setMetadata(PORTAL_EVENT_META, new FixedMetadataValue(WorldBorder.plugin, event));
+			Bukkit.getScheduler().runTaskLater(WorldBorder.plugin, () -> {
+				event.getPlayer().removeMetadata(PORTAL_EVENT_META, WorldBorder.plugin);
+				//WorldBorder.plugin.getLogger().info("Removed " + player.getName() + " portal meta.");
+			}, 0);
+		} else if (event.getCause() == TeleportCause.UNKNOWN) {
+			List<MetadataValue> metas = player.getMetadata(PORTAL_EVENT_META);
+			if (metas != null && !metas.isEmpty()) {
+				PlayerTeleportEvent savedEvent = (PlayerTeleportEvent) metas.get(0).value();
+				if (savedEvent.getFrom().getWorld().equals(event.getFrom().getWorld())) {
+					//WorldBorder.plugin.getLogger().info("Ignoring nonsensical teleport by " + player.getName() +
+					//            " in " + savedEvent.getFrom().getWorld().getName() + ".");
+					return;
+				}
+			}
+		}
+
+		Location newLoc = BorderCheckTask.checkPlayer(player, event.getTo(), true, true);
 		if (newLoc != null)
 		{
 			if(event.getCause() == PlayerTeleportEvent.TeleportCause.ENDER_PEARL && Config.getDenyEnderpearl())

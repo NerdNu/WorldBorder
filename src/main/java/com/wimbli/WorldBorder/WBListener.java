@@ -35,14 +35,15 @@ public class WBListener implements Listener
 		// Ignore nonsensical teleport events.
 		// https://hub.spigotmc.org/jira/browse/SPIGOT-5252
 		Player player = event.getPlayer();
-		if (event.getCause() == TeleportCause.NETHER_PORTAL || event.getCause() == TeleportCause.END_PORTAL) {
+		TeleportCause cause = event.getCause();
+		if (cause == TeleportCause.NETHER_PORTAL || cause == TeleportCause.END_PORTAL) {
 			// Store event details of the original correct event. TeleportCause.UNKNOWN comes after.
 			player.setMetadata(PORTAL_EVENT_META, new FixedMetadataValue(WorldBorder.plugin, event));
 			Bukkit.getScheduler().runTaskLater(WorldBorder.plugin, () -> {
-				event.getPlayer().removeMetadata(PORTAL_EVENT_META, WorldBorder.plugin);
+				player.removeMetadata(PORTAL_EVENT_META, WorldBorder.plugin);
 				//WorldBorder.plugin.getLogger().info("Removed " + player.getName() + " portal meta.");
 			}, 0);
-		} else if (event.getCause() == TeleportCause.UNKNOWN) {
+		} else if (cause == TeleportCause.UNKNOWN) {
 			List<MetadataValue> metas = player.getMetadata(PORTAL_EVENT_META);
 			if (metas != null && !metas.isEmpty()) {
 				PlayerTeleportEvent savedEvent = (PlayerTeleportEvent) metas.get(0).value();
@@ -57,7 +58,7 @@ public class WBListener implements Listener
 		Location newLoc = BorderCheckTask.checkPlayer(player, event.getTo(), true, true);
 		if (newLoc != null)
 		{
-			if(event.getCause() == PlayerTeleportEvent.TeleportCause.ENDER_PEARL && Config.getDenyEnderpearl())
+			if(cause == PlayerTeleportEvent.TeleportCause.ENDER_PEARL && Config.getDenyEnderpearl())
 			{
 				event.setCancelled(true);
 				return;
